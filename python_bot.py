@@ -31,6 +31,7 @@ import time
 from timeloop import Timeloop
 from datetime import timedelta
 
+#%% Open WA
 tl = Timeloop()
 
 # Replace below path with the absolute path of the \#chromedriver in your computer
@@ -43,7 +44,7 @@ wait = WebDriverWait(driver, 100)
 
 # Replace 'My Bsnl' with the name of your friend or group name
 
-#%% Testing
+#%% Click trarget
 target = '"My Number"'
 x_arg = '//span[contains(@title,' + target + ')]'
 group_title = wait.until(EC.presence_of_element_located((By.XPATH, x_arg)))
@@ -53,52 +54,83 @@ group_title.click()
 
 url = driver.page_source
 soup = bs(url, "lxml")
-print (" =========" )
-print(soup.find_all(class_="FTBzM")[-1].prettify())
-print (" =========" )
-print(soup.find_all(class_="FTBzM")[-2].prettify())
+#print (" =========" )
+#print(soup.find_all(class_="FTBzM")[-2].prettify())
+#print (" =========" )
+#print(soup.find_all(class_="FTBzM")[-1].prettify())
 
 
-#%%
+#%% Get Chat From WA
 def getChatFromWA(ChatRoom):
     # ================= OPEN CHAT ROOM =====================
-    print("click chat room ")
+#    print("click chat room ")
     x_arg = '//span[contains(@title,' + ChatRoom + ')]'
     group_title = wait.until(EC.presence_of_element_located((By.XPATH, x_arg)))
 #    print (group_title)
-    print ("Wait for few seconds")
+#    print ("Wait for few seconds")
     group_title.click()    
     
     # =================== GET THE CHAT ======================
     url = driver.page_source
     soup = bs(url, "lxml")
-    print("get the chat")
+#    print("get the chat")
+    chatdict = {}
     try:
         gotchat = soup.find_all(class_="FTBzM")[-1] # searching node for last chat
-        gottext = gotchat.find_all("span", class_="selectable-text invisible-space copyable-text")[-1]
-#        gothour = gotchat.find_all("div", role="button")[-1].contents[0]
-        gotdate_hour = gotchat.find_all("div", class_="copyable-text")[0].attrs['data-pre-plain-text']
-    except IndexError:
-        gotchat = 'null'
-#    print(gotchat.prettify())
-    
-    # ================= PARSING DATA CHAT ============
-    print("parsing data from chat ")
-    chatdict = {}
-    hour = gotdate_hour.split(']')[0][1:].split(',')[0].strip()  #parsing gotdate_hour to get hour 
-    date = gotdate_hour.split(']')[0][1:].split(',')[1].strip()  #parsing gotdate_hour to get date
-    senderName = gotdate_hour.split(']')[1].strip()[:-1]         #parsing gotdate_hour to get sender name
-    chatdict['hour'] = hour
-    chatdict['date'] = date
-    chatdict['text'] = gottext.string
-    chatdict['sender'] = senderName
-#    print(gotdate_hour)
-    return chatdict
+    except IndexError as err:
+        return None
+        print ("Error : ", err)
+        print('class name (maybe) rearranged')
+    else:
+        try:
+            gottext = gotchat.find_all("span", class_="selectable-text invisible-space copyable-text")[-1]
+            gotdate_hour = gotchat.find_all("div", class_="copyable-text")[0].attrs['data-pre-plain-text']
+        except IndexError as error:
+            print("ERROR: ", error)
+            print("Last message is not a text")
+            return None
+        else:
+            # ================= PARSING DATA CHAT ============
+#            print("parsing data from chat ")
+            hour = gotdate_hour.split(']')[0][1:].split(',')[0].strip()  #parsing gotdate_hour to get hour 
+            date = gotdate_hour.split(']')[0][1:].split(',')[1].strip()  #parsing gotdate_hour to get date
+            senderName = gotdate_hour.split(']')[1].strip()[:-1]         #parsing gotdate_hour to get sender name
+            chatdict['hour'] = hour
+            chatdict['date'] = date
+            chatdict['text'] = gottext.string
+            chatdict['sender'] = senderName            
+            return chatdict
     #END GETCHATFROMWA
-#%%    sdfsdfsf
+    
 print(getChatFromWA('"My Number"'))
-#%% test
+#%% BOT Testing
 prevChat = {}
+
+#target = '"My Number"'
+def isExistInDB(cmd, filename):
+    data = pd.read_csv(filename) 
+    isFound =False
+    procedure_name = None
+    for idx in range(len(data['command'])):
+        if (data['command'][idx] == cmd):
+            isFound = True
+            procedure_name = data['procedure_name'][idx]
+            break
+    return isFound, procedure_name
+    
+def doCommand(command):
+    isFound, procedure = isExistInDB(command, 'command.csv')
+    if (isFound == True):
+        print('here')
+        exec(procedure)
+    else:
+        sendTexttoWA("Unknown command for: "+ command, target)
+        
+def echo():
+    print('echo')
+def charting2g3g4g():
+    print('charting')
+
 def isNewChat(prevChat, newChat,botname):
     if not prevChat.get('date'):
         return True
@@ -117,22 +149,19 @@ def isNewChat(prevChat, newChat,botname):
         return False        
     #END :isNewChat
 
-target = '"My Number"'
+target = '"Kak Yeyen"'
 tl = Timeloop()
 @tl.job(interval=timedelta(seconds=3))
 def sample_job_every_10s():
     global prevChat
     recentChat = getChatFromWA(target)
-    print ('ini recent chat')
-    print (recentChat)
-    if (isNewChat(prevChat, recentChat, "Yoland Nababan") == True):
-        print('ini textnya')
-        print(recentChat['text'])
-        prevChat = recentChat
-        doCommand(recentChat['text'])
-    else:
-        print('IDLE')
-#    print('oke')
+    if (recentChat != None): # if message is a text (not an image, sticker, etc.)
+        if (isNewChat(prevChat, recentChat, "Yoland Nababan") == True):
+            print(recentChat['text'])
+            prevChat = recentChat
+            doCommand(recentChat['text'])
+        else:
+            print('IDLE')
 
 def sendTexttoWA(messageText, target):
     #from selenium import webdriver
@@ -141,13 +170,12 @@ def sendTexttoWA(messageText, target):
     group_title = wait.until(EC.presence_of_element_located((By.XPATH, x_arg)))
     group_title.click()
     message = driver.find_elements_by_xpath('//*[@id="main"]/footer/div[1]/div[2]/div/div[2]')[0]
-    message.send_keys(messageText + '\n')
+    message.send_keys(messageText + '\n')   
     
-def doCommand(command):
-    text = 'BOT: ' + command
-    sendTexttoWA(text,target)
 if __name__ == "__main__":
     tl.start(block=True)
+
+
 
 #Store chat
 #def storeChat(filepath, filename):
