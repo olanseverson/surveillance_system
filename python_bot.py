@@ -22,7 +22,6 @@ import click
 import os
 import sys
 import csv
-import threading
 
 import pandas as pd
 
@@ -31,43 +30,46 @@ import time
 from timeloop import Timeloop
 from datetime import timedelta
 
+import schedule
+import threading
+import logging
+#logger = logging.getLogger()
+#logging.basicConfig(level=logging.DEBUG,
+#                    format='(%(threadName)-9s) %(message)s',)
 #%% Open WA
 tl = Timeloop()
 
 # Replace below path with the absolute path of the \#chromedriver in your computer
 dirname, filename = os.path.split(os.path.abspath(__file__))
-print(dirname)
-
 driver = webdriver.Chrome(dirname + '/chromedriver')
 driver.get("https://web.whatsapp.com/")
 wait = WebDriverWait(driver, 100)
 
-# Replace 'My Bsnl' with the name of your friend or group name
-
 #%% Click trarget
-target = '"My Number"'
-x_arg = '//span[contains(@title,' + target + ')]'
-group_title = wait.until(EC.presence_of_element_located((By.XPATH, x_arg)))
-print (group_title)
-print ("Wait for few seconds")
+target = '"Kak Yeyen"'
+x_arg = '//span[contains(@title,' + target + ')]';
+group_title = wait.until(EC.presence_of_element_located((By.XPATH, x_arg)));
+#print (group_title)
+#print ("Wait for few seconds")
 group_title.click()
 
 url = driver.page_source
 soup = bs(url, "lxml")
-#print (" =========" )
-#print(soup.find_all(class_="FTBzM")[-2].prettify())
-#print (" =========" )
-#print(soup.find_all(class_="FTBzM")[-1].prettify())
-
 
 #%% Get Chat From WA
 def getChatFromWA(ChatRoom):
     # ================= OPEN CHAT ROOM =====================
 #    print("click chat room ")
-    x_arg = '//span[contains(@title,' + ChatRoom + ')]'
-    group_title = wait.until(EC.presence_of_element_located((By.XPATH, x_arg)))
-#    print (group_title)
-#    print ("Wait for few seconds")
+#    logging.set(logging.WARNING)
+#    print(logging.getLevelName(logging.WARNING))
+    logging.disable(logging.DEBUG)
+#    logger = logging.getLogger()
+#    logger.propagate = True
+#    logger.
+#    logging.disable(sys.maxsize)
+#    print(sys.maxsize)
+    x_arg = '//span[contains(@title,' + ChatRoom + ')]';
+    group_title = wait.until(EC.presence_of_element_located((By.XPATH, x_arg)));
     group_title.click()    
     
     # =================== GET THE CHAT ======================
@@ -103,38 +105,108 @@ def getChatFromWA(ChatRoom):
     #END GETCHATFROMWA
     
 print(getChatFromWA('"My Number"'))
-#%% BOT Testing
+    #%% BOT Testing
 prevChat = {}
-
+#logging.basicConfig(level=logging.DEBUG,
+#                    format='(%(threadName)-9s) %(message)s',)
 #target = '"My Number"'
+#target = '"Kak Yeyen"'
+target = '"Bang Rio"'
+isMainBusy = False
+isNeedReply = False
+def sendTexttoWA(messageText, target):
+    #from selenium import webdriver
+#    target = '"' + e3.get() + '"'
+    x_arg = '//span[contains(@title,' + target + ')]'
+    group_title = wait.until(EC.presence_of_element_located((By.XPATH, x_arg)))
+    group_title.click()
+    message = driver.find_elements_by_xpath('//*[@id="main"]/footer/div[1]/div[2]/div/div[2]')[0]
+    message.send_keys(messageText + '\n')
+    
 def isExistInDB(cmd, filename):
-    data = pd.read_csv(filename) 
-    isFound =False
+    isFound = False
     procedure_name = None
+    isNeedReply = None
+    data = pd.read_csv(filename) 
     for idx in range(len(data['command'])):
         if (data['command'][idx] == cmd):
             isFound = True
             procedure_name = data['procedure_name'][idx]
+            isNeedReply = data['IsNeedReply'][idx]
             break
-    return isFound, procedure_name
+    return isFound, procedure_name, isNeedReply
     
 def doCommand(command):
-    isFound, procedure = isExistInDB(command, 'command.csv')
-    if (isFound == True):
-        print('here')
-        exec(procedure)
+    global isMainBusy
+    global isNeedReply
+#    print('doCmd: ', isMainBusy)
+    isFound, procedure_name, Reply= isExistInDB(command['text'].lower(), 'command.csv')
+    if (isFound == True): # if command is a recognized command
+#        print('found')
+        if (isMainBusy == True): # busy, doing another request
+            if (isNeedReply == True):
+                print('add command to queue')
+#                time.sleep(2);
+            else:
+                print('busy')
+                sendTexttoWA("Server busy, please wait another process to be finished!", target)
+        else:
+            isNeedReply = Reply
+            isMainBusy  = True
+#            print('sender: ' + command['sender'])
+#            print('proced: ' + procedure_name)
+#            print('isNeed: ' + str(Reply))
+            print('start thread')
+            #start a new thread
+            cmdThread = threading.Thread(target = function_mapping
+                                         , args = (procedure_name, )
+                                         , name = command['sender'])     
+            cmdThread.start();
+#            cmdThread.join();
+#            print ('d.isAlive()', cmdThread.isAlive())
     else:
-        sendTexttoWA("Unknown command for: "+ command, target)
+        sendTexttoWA("BOT:Unknown command for: "+ command['text'], target)
+#        sendTexttoWA("BOT: "+ command['text'], target)
+#        print(command['text'])
         
+def function_mapping(function_name):
+    logger = logging.getLogger()
+    logger.propagate = True
+    logging.basicConfig(level=logging.DEBUG,
+                    format='(%(threadName)-9s) %(message)s',)
+    t = threading.currentThread()
+    logging.info(t.getName())
+    if(function_name == 'echo'):
+        echo()
+    elif (function_name == 'charting2g3g4g'):
+        charting2g3g4g()
+
 def echo():
-    print('echo')
+    global isMainBusy
+    print('====start echo()=======')
+    print(time.ctime())
+    time.sleep(10)
+    print(time.ctime())
+    isMainBusy = False;
+    
+    print("isMainBusy: ", isMainBusy)
+    print('====END echo()=======')
+    return 0
+
 def charting2g3g4g():
-    print('charting')
+    global isMainBusy
+    print('====start charting()=======')
+    print('CHARTING')
+    time.sleep(8)
+    isMainBusy = False
+    print("isMainBusy: ", isMainBusy)
+    print('====END chart()=======')
+    return 0;
 
 def isNewChat(prevChat, newChat,botname):
-    if not prevChat.get('date'):
-        return True
     if (newChat['sender'] != botname): # request is not from bot itself
+        if not prevChat.get('date'):
+            return True
         if (prevChat['date'] != newChat['date']):
             return True
         else: 
@@ -149,38 +221,58 @@ def isNewChat(prevChat, newChat,botname):
         return False        
     #END :isNewChat
 
-target = '"Kak Yeyen"'
+#def checkNewMessage():
+#    global prevChat
+#    recentChat = getChatFromWA(target)
+#    if (recentChat != None): # if message is a text (not an image, sticker, etc.)
+#        if (isNewChat(prevChat, recentChat, "Yoland Nababan") == True):
+#            print(recentChat['text'])
+#            prevChat = recentChat
+#            doCommand(recentChat)
+#        else:
+#            print(' ')
+#            
+#if __name__ == "__main__":
+#    schedule.every(5).seconds.do(checkNewMessage)
+#    while True:
+#        schedule.run_pending()
+#        time.sleep(1)
+    
 tl = Timeloop()
-@tl.job(interval=timedelta(seconds=3))
-def sample_job_every_10s():
+@tl.job(interval=timedelta(seconds=2))
+def checkNewMessage():
     global prevChat
     recentChat = getChatFromWA(target)
     if (recentChat != None): # if message is a text (not an image, sticker, etc.)
         if (isNewChat(prevChat, recentChat, "Yoland Nababan") == True):
             print(recentChat['text'])
             prevChat = recentChat
-            doCommand(recentChat['text'])
-        else:
-            print('IDLE')
-
-def sendTexttoWA(messageText, target):
-    #from selenium import webdriver
-#    target = '"' + e3.get() + '"'
-    x_arg = '//span[contains(@title,' + target + ')]'
-    group_title = wait.until(EC.presence_of_element_located((By.XPATH, x_arg)))
-    group_title.click()
-    message = driver.find_elements_by_xpath('//*[@id="main"]/footer/div[1]/div[2]/div/div[2]')[0]
-    message.send_keys(messageText + '\n')   
-    
+            doCommand(recentChat)
+#        else:
+#            print('-')
+    # debugging thread process
+    print("Total number of threads", threading.activeCount())
+#    print("List of threads: ", threading.enumerate())
+#    print("this thread: ", threading.current_thread)
 if __name__ == "__main__":
     tl.start(block=True)
-
-
-
-#Store chat
-#def storeChat(filepath, filename):
-##store chat if it is unique
-#    threading.Timer(5.0, repeatfun).start()
     
+
+
+
+
+    
+#tl = Timeloop()
+#@tl.job(interval=timedelta(seconds=3))
+#def sample_job_every_3s():
+#    global prevChat
+#    recentChat = getChatFromWA(target)
+#    if (recentChat != None): # if message is a text (not an image, sticker, etc.)
+#        if (isNewChat(prevChat, recentChat, "Yoland Nababan") == True):
+#            print(recentChat['text'])
+#            prevChat = recentChat
+#            doCommand(recentChat['text'])
+#        else:
+#            print('IDLE')
 #driver.close()
 #sys.exit()

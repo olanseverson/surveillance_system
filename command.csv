@@ -1,10 +1,7 @@
-command,procedure_name
-echo,echo()
-ECHO,echo
-Echo,echo
-charting,charting2g3g4g()
-Charting,charting2g3g4g()
-CHARTING,charting2g3g4g()
-CHART,charting2g3g4g()
-Chart,charting2g3g4g()
-chart,charting2g3g4g()
+command,procedure_name,IsNeedReply
+echo,echo,False
+p,echo,False
+charting,charting2g3g4g,True
+chart,charting2g3g4g,True
+c,charting2g3g4g,True
+d,charting2g3g4g,True
