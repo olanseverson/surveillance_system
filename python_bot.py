@@ -7,6 +7,8 @@ Source :
     https://codepad.co/snippet/whatsapp-bot-using-selenium-with-python
     https://www.crummy.com/software/BeautifulSoup/bs4/doc/#multi-valued-attributes
     https://selenium-python.readthedocs.io/locating-elements.html
+    https://realpython.com/intro-to-python-threading/#conclusion-threading-in-python
+    https://docs.python.org/2/howto/logging.html#loggers
 @author: Olan
 """
 #%% Import dependencies
@@ -33,12 +35,18 @@ from datetime import timedelta
 import schedule
 import threading
 import logging
-#logger = logging.getLogger()
-#logging.basicConfig(level=logging.DEBUG,
-#                    format='(%(threadName)-9s) %(message)s',)
-#%% Open WA
-tl = Timeloop()
 
+from queue import Queue
+
+logging.basicConfig(level = logging.WARNING,)
+#logging.root.setLevel(logging.DEBUG)
+FORMATTER = logging.Formatter("[%(levelname)s] => (%(name)s||%(threadName)-s):  %(message)s")
+logger_handler = logging.StreamHandler() # handler
+logger_handler.setFormatter(FORMATTER)
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+#%% Open WA
 # Replace below path with the absolute path of the \#chromedriver in your computer
 dirname, filename = os.path.split(os.path.abspath(__file__))
 driver = webdriver.Chrome(dirname + '/chromedriver')
@@ -46,10 +54,9 @@ driver.get("https://web.whatsapp.com/")
 wait = WebDriverWait(driver, 100)
 
 #%% Click trarget
-target = '"Kak Yeyen"'
+target = '"Bot Nokia"'
 x_arg = '//span[contains(@title,' + target + ')]';
 group_title = wait.until(EC.presence_of_element_located((By.XPATH, x_arg)));
-#print (group_title)
 #print ("Wait for few seconds")
 group_title.click()
 
@@ -58,16 +65,9 @@ soup = bs(url, "lxml")
 
 #%% Get Chat From WA
 def getChatFromWA(ChatRoom):
+    loggerm = logging.getLogger(__name__ + 'getChat')
+    loggerm.setLevel(logging.WARN)
     # ================= OPEN CHAT ROOM =====================
-#    print("click chat room ")
-#    logging.set(logging.WARNING)
-#    print(logging.getLevelName(logging.WARNING))
-    logging.disable(logging.DEBUG)
-#    logger = logging.getLogger()
-#    logger.propagate = True
-#    logger.
-#    logging.disable(sys.maxsize)
-#    print(sys.maxsize)
     x_arg = '//span[contains(@title,' + ChatRoom + ')]';
     group_title = wait.until(EC.presence_of_element_located((By.XPATH, x_arg)));
     group_title.click()    
@@ -75,25 +75,24 @@ def getChatFromWA(ChatRoom):
     # =================== GET THE CHAT ======================
     url = driver.page_source
     soup = bs(url, "lxml")
-#    print("get the chat")
+    loggerm.debug("get the chat")
     chatdict = {}
     try:
         gotchat = soup.find_all(class_="FTBzM")[-1] # searching node for last chat
     except IndexError as err:
         return None
-        print ("Error : ", err)
-        print('class name (maybe) rearranged')
+        loggerm.error("Error: ", err)
+        loggerm.error('class name (maybe) rearranged')
     else:
         try:
             gottext = gotchat.find_all("span", class_="selectable-text invisible-space copyable-text")[-1]
             gotdate_hour = gotchat.find_all("div", class_="copyable-text")[0].attrs['data-pre-plain-text']
         except IndexError as error:
-            print("ERROR: ", error)
-            print("Last message is not a text")
+            loggerm.error("ERROR: ", error)
+            loggerm.error("Last message is not a text")
             return None
         else:
             # ================= PARSING DATA CHAT ============
-#            print("parsing data from chat ")
             hour = gotdate_hour.split(']')[0][1:].split(',')[0].strip()  #parsing gotdate_hour to get hour 
             date = gotdate_hour.split(']')[0][1:].split(',')[1].strip()  #parsing gotdate_hour to get date
             senderName = gotdate_hour.split(']')[1].strip()[:-1]         #parsing gotdate_hour to get sender name
@@ -103,24 +102,26 @@ def getChatFromWA(ChatRoom):
             chatdict['sender'] = senderName            
             return chatdict
     #END GETCHATFROMWA
-    
-print(getChatFromWA('"My Number"'))
-    #%% BOT Testing
-prevChat = {}
+
+#print(getChatFromWA('"Bot Nokia"'))
+#%% BOT Testing
+
 #logging.basicConfig(level=logging.DEBUG,
 #                    format='(%(threadName)-9s) %(message)s',)
 #target = '"My Number"'
 #target = '"Kak Yeyen"'
-target = '"Bang Rio"'
+#target = '"Bang Rio"'
+target = '"Bot Nokia"'
+prevChat = {}
 isMainBusy = False
 isNeedReply = False
+BUF_SIZE = 10
+q = Queue(BUF_SIZE)
 def sendTexttoWA(messageText, target):
-    #from selenium import webdriver
-#    target = '"' + e3.get() + '"'
     x_arg = '//span[contains(@title,' + target + ')]'
     group_title = wait.until(EC.presence_of_element_located((By.XPATH, x_arg)))
     group_title.click()
-    message = driver.find_elements_by_xpath('//*[@id="main"]/footer/div[1]/div[2]/div/div[2]')[0]
+    message = driver.find_elements_by_xpath('//*[@contenteditable="true"]')[-1]
     message.send_keys(messageText + '\n')
     
 def isExistInDB(cmd, filename):
@@ -137,71 +138,70 @@ def isExistInDB(cmd, filename):
     return isFound, procedure_name, isNeedReply
     
 def doCommand(command):
+    #logger
+    logger.setLevel(logging.DEBUG)
     global isMainBusy
     global isNeedReply
-#    print('doCmd: ', isMainBusy)
+    global q
     isFound, procedure_name, Reply= isExistInDB(command['text'].lower(), 'command.csv')
     if (isFound == True): # if command is a recognized command
-#        print('found')
         if (isMainBusy == True): # busy, doing another request
-            if (isNeedReply == True):
-                print('add command to queue')
-#                time.sleep(2);
-            else:
-                print('busy')
+            if (isNeedReply == False):
+                logger.info('busy')
                 sendTexttoWA("Server busy, please wait another process to be finished!", target)
         else:
             isNeedReply = Reply
             isMainBusy  = True
-#            print('sender: ' + command['sender'])
-#            print('proced: ' + procedure_name)
-#            print('isNeed: ' + str(Reply))
-            print('start thread')
+            logger.debug('sender: ' + command['sender'])
+            logger.debug('proced: ' + procedure_name)
+            logger.debug('isNeed: ' + str(Reply))
+            
             #start a new thread
-            cmdThread = threading.Thread(target = function_mapping
-                                         , args = (procedure_name, )
+            logger.info('start thread')
+            cmdThread = threading.Thread(target = eval(procedure_name)
+                                         , args = ( )
                                          , name = command['sender'])     
+            cmdThread.setDaemon(True)
             cmdThread.start();
 #            cmdThread.join();
-#            print ('d.isAlive()', cmdThread.isAlive())
+            
     else:
         sendTexttoWA("BOT:Unknown command for: "+ command['text'], target)
-#        sendTexttoWA("BOT: "+ command['text'], target)
-#        print(command['text'])
         
-def function_mapping(function_name):
-    logger = logging.getLogger()
-    logger.propagate = True
-    logging.basicConfig(level=logging.DEBUG,
-                    format='(%(threadName)-9s) %(message)s',)
-    t = threading.currentThread()
-    logging.info(t.getName())
-    if(function_name == 'echo'):
-        echo()
-    elif (function_name == 'charting2g3g4g'):
-        charting2g3g4g()
-
 def echo():
+    logger.setLevel(logging.DEBUG)# logger
     global isMainBusy
-    print('====start echo()=======')
-    print(time.ctime())
-    time.sleep(10)
-    print(time.ctime())
+    logger.debug("START ECHO")
+    time.sleep(5)
     isMainBusy = False;
-    
-    print("isMainBusy: ", isMainBusy)
-    print('====END echo()=======')
-    return 0
+    logger.debug("isMainBusy :%d ", isMainBusy)
+    logger.debug("TERMINATE ECHO")
+#    print('why')
 
-def charting2g3g4g():
+def charting():
     global isMainBusy
-    print('====start charting()=======')
-    print('CHARTING')
-    time.sleep(8)
+    global isNeedReply
+    isCmdComplete = False
+    logger.debug('START CHART')
+    logger.debug('CHARTING')
+    while isCmdComplete == False:
+        if (q.empty() == True):
+            pass
+        message = q.get()
+        logging.debug("Consumer storing message: %s (size=%d)"
+                      , message, q.qsize())
+        if (message == '2g' or message == '3g' or message == '4g'):
+            logger.debug('message is : %s', message)
+            isNeedReply = False;
+            with q.mutex:
+                q.queue.clear()
+            isCmdComplete = True
+        else:
+            logger.debug('invalid respon')
+        
     isMainBusy = False
-    print("isMainBusy: ", isMainBusy)
-    print('====END chart()=======')
-    return 0;
+    logger.debug("END CHARTING")
+    return;
 
 def isNewChat(prevChat, newChat,botname):
     if (newChat['sender'] != botname): # request is not from bot itself
@@ -230,49 +230,44 @@ def isNewChat(prevChat, newChat,botname):
 #            prevChat = recentChat
 #            doCommand(recentChat)
 #        else:
-#            print(' ')
+#            print('-')
 #            
 #if __name__ == "__main__":
-#    schedule.every(5).seconds.do(checkNewMessage)
+#    schedule.every(1).seconds.do(checkNewMessage)
 #    while True:
 #        schedule.run_pending()
-#        time.sleep(1)
+#        print(time.ctime())
+#        time.sleep(60)
+        
     
 tl = Timeloop()
-@tl.job(interval=timedelta(seconds=2))
+@tl.job(interval=timedelta(seconds=1))
 def checkNewMessage():
     global prevChat
+    global isMainBusy
+    global isNeedReply
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
     recentChat = getChatFromWA(target)
     if (recentChat != None): # if message is a text (not an image, sticker, etc.)
         if (isNewChat(prevChat, recentChat, "Yoland Nababan") == True):
             print(recentChat['text'])
             prevChat = recentChat
-            doCommand(recentChat)
-#        else:
-#            print('-')
-    # debugging thread process
+            if (isMainBusy == True and isNeedReply == True):
+                logger.info('add command to queue')
+                if not q.full():
+                    q.put(recentChat['text'])
+                logger.info('Putting ' + recentChat['text']
+                        + ' : ' + str(q.qsize()) + ' items in queue')
+            else:
+                doCommand(recentChat)
+            
+    # DEBUGGING THREAD
     print("Total number of threads", threading.activeCount())
 #    print("List of threads: ", threading.enumerate())
 #    print("this thread: ", threading.current_thread)
 if __name__ == "__main__":
     tl.start(block=True)
     
-
-
-
-
-    
-#tl = Timeloop()
-#@tl.job(interval=timedelta(seconds=3))
-#def sample_job_every_3s():
-#    global prevChat
-#    recentChat = getChatFromWA(target)
-#    if (recentChat != None): # if message is a text (not an image, sticker, etc.)
-#        if (isNewChat(prevChat, recentChat, "Yoland Nababan") == True):
-#            print(recentChat['text'])
-#            prevChat = recentChat
-#            doCommand(recentChat['text'])
-#        else:
-#            print('IDLE')
 #driver.close()
 #sys.exit()

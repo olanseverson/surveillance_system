@@ -1,7 +1,8 @@
-command,procedure_name,IsNeedReply
-echo,echo,False
-p,echo,False
-charting,charting2g3g4g,True
-chart,charting2g3g4g,True
-c,charting2g3g4g,True
-d,charting2g3g4g,True
+command,procedure_name,IsNeedReply,validRespon
+echo,echo,False,None
+charting,charting,True,2/3/4
+chart,charting,True,2/3/4
+p,echo,False,None
+e,echo,False,None
+c,charting,True,2/3/4
+d,charting,True,2/3/4
