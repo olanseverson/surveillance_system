@@ -11,28 +11,21 @@ Source :
     https://docs.python.org/2/howto/logging.html#loggers
 @author: Olan
 """
-#%% Import dependencies
+# %% Import dependencies
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
-from requests import get
 from bs4 import BeautifulSoup as bs
-import keyboard
-import click
 import os
-import sys
-import csv
 
 import pandas as pd
 
-# for periodic task 
+#for periodic task
 import time
 from timeloop import Timeloop
 from datetime import timedelta
 
-import schedule
 import threading
 import logging
 
@@ -53,7 +46,7 @@ driver = webdriver.Chrome(dirname + '/chromedriver')
 driver.get("https://web.whatsapp.com/")
 wait = WebDriverWait(driver, 100)
 
-#%% Click trarget
+#%% Click target
 target = '"Bot Nokia"'
 x_arg = '//span[contains(@title,' + target + ')]';
 group_title = wait.until(EC.presence_of_element_located((By.XPATH, x_arg)));
@@ -103,7 +96,7 @@ def getChatFromWA(ChatRoom):
             return chatdict
     #END GETCHATFROMWA
 
-#print(getChatFromWA('"Bot Nokia"'))
+print(getChatFromWA('"Bot Nokia"'))
 #%% BOT Testing
 
 #logging.basicConfig(level=logging.DEBUG,
@@ -117,12 +110,8 @@ isMainBusy = False
 isNeedReply = False
 BUF_SIZE = 10
 q = Queue(BUF_SIZE)
-def sendTexttoWA(messageText, target):
-    x_arg = '//span[contains(@title,' + target + ')]'
-    group_title = wait.until(EC.presence_of_element_located((By.XPATH, x_arg)))
-    group_title.click()
-    message = driver.find_elements_by_xpath('//*[@contenteditable="true"]')[-1]
-    message.send_keys(messageText + '\n')
+
+
     
 def isExistInDB(cmd, filename):
     isFound = False
@@ -148,14 +137,14 @@ def doCommand(command):
         if (isMainBusy == True): # busy, doing another request
             if (isNeedReply == False):
                 logger.info('busy')
-                sendTexttoWA("Server busy, please wait another process to be finished!", target)
+                sendTexttoWA("Server busy, please wait another process to be finished!")
         else:
             isNeedReply = Reply
             isMainBusy  = True
             logger.debug('sender: ' + command['sender'])
             logger.debug('proced: ' + procedure_name)
             logger.debug('isNeed: ' + str(Reply))
-            
+
             #start a new thread
             logger.info('start thread')
             cmdThread = threading.Thread(target = eval(procedure_name)
@@ -166,7 +155,7 @@ def doCommand(command):
 #            cmdThread.join();
             
     else:
-        sendTexttoWA("BOT:Unknown command for: "+ command['text'], target)
+        sendTexttoWA("BOT:Unknown command for: "+ command['text'])
         
 def echo():
     logger.setLevel(logging.DEBUG)# logger
@@ -176,7 +165,6 @@ def echo():
     isMainBusy = False;
     logger.debug("isMainBusy :%d ", isMainBusy)
     logger.debug("TERMINATE ECHO")
-#    print('why')
 
 def charting():
     global isMainBusy
@@ -238,7 +226,12 @@ def isNewChat(prevChat, newChat,botname):
 #        schedule.run_pending()
 #        print(time.ctime())
 #        time.sleep(60)
-        
+def sendTexttoWA(messageText):
+    x_arg = '//span[contains(@title,' + target + ')]'
+    group_title = wait.until(EC.presence_of_element_located((By.XPATH, x_arg)))
+    group_title.click()
+    message = driver.find_elements_by_xpath('//*[@contenteditable="true"]')[-1]
+    message.send_keys(messageText + '\n')
     
 tl = Timeloop()
 @tl.job(interval=timedelta(seconds=1))

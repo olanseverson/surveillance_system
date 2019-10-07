@@ -245,3 +245,5 @@ def addspace(textori,spacecar):
       textori = textori + " "
       i += 1
     return(textori)
+
+

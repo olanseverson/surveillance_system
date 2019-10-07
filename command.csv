@@ -1,8 +1,13 @@
 command,procedure_name,IsNeedReply,validRespon
 echo,echo,False,None
-charting,charting,True,2/3/4
 chart,charting,True,2/3/4
+search, searchsuffix, True, 2/3/4
+suffix, searchsuffix, True, 2/3/4
+stat,stats,False,None
+status,stats,False,None
 p,echo,False,None
 e,echo,False,None
-c,charting,True,2/3/4
-d,charting,True,2/3/4
+c,searchsuffix,True,2/3/4
+d,searchsuffix,True,2/3/4
+a,charting,True,2/3/4
+b,charting,True,2/3/4
